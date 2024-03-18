@@ -30,6 +30,7 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
 int kvadrat(int a){
     return a*a;
 }
+const float Pi = 3.14159;
 //kraj probe!!!
 // settings
 const unsigned int SCR_WIDTH = 800;
