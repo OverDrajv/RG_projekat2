@@ -44,6 +44,23 @@ bool firstMouse = true;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+bool TurnOnTheBrightLights = false;
+
+struct SpotLight {
+    glm::vec3 position;
+    glm::vec3 direction;
+    float cutOff;
+    float outerCutOff;
+
+    float constant;
+    float linear;
+    float quadratic;
+
+    glm::vec3 ambient;
+    glm::vec3 diffuse;
+    glm::vec3 specular;
+};
+
 struct PointLight {
     glm::vec3 position;
     glm::vec3 ambient;
@@ -53,14 +70,6 @@ struct PointLight {
     float constant;
     float linear;
     float quadratic;
-};
-
-struct DirLight {
-    glm::vec3 direction;
-
-    glm::vec3 ambient;
-    glm::vec3 diffuse;
-    glm::vec3 specular;
 };
 
 struct ProgramState {
@@ -175,7 +184,7 @@ int main() {
     // -------------------------
     Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     Shader skyBoxShader("resources/shaders/skyBox.vs", "resources/shaders/skyBox.fs");
-    Shader starDestroyerShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
+    Shader starDestroyerShader("resources/shaders/newShader.vs", "resources/shaders/newShader.fs");
     Shader rebelShipShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     Shader asteroidFieldShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     // load models
@@ -264,6 +273,15 @@ int main() {
     pointLight.linear = 0.09f;
     pointLight.quadratic = 0.032f;
 
+    SpotLight spotLight;
+    spotLight.position = glm::vec3 (0.00577375,0.257113,-6.42628);
+    spotLight.direction = glm::vec3 (0.0f, 0.0f, -1.0f);
+    spotLight.ambient = glm::vec3 (0.0f);
+    spotLight.constant = 1.0f;
+    spotLight.linear = 0.01f;
+    spotLight.quadratic = 0.01f;
+    spotLight.cutOff = glm::cos(glm::radians(15.0f));
+    spotLight.outerCutOff = glm::cos(glm::radians(30.0f));
     // draw in wireframe
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
@@ -319,6 +337,14 @@ int main() {
         ourModel.Draw(ourShader);
 
         //Star Destroyer
+        if(TurnOnTheBrightLights){
+            spotLight.specular = glm::vec3 (0.9f);
+            spotLight.diffuse = glm::vec3 (0.8f);
+        }
+        else{
+            spotLight.specular = glm::vec3 (0.0f);
+            spotLight.diffuse = glm::vec3 (0.0f);
+        }
         starDestroyerShader.use();
         starDestroyerShader.setVec3("dirLight.direction",1.0f, 0.0f, 0.0f);
         starDestroyerShader.setVec3("dirLight.specular", 0.8f, 0.8f, 0.8f);
@@ -326,6 +352,17 @@ int main() {
         starDestroyerShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
         starDestroyerShader.setVec3("viewPosition", programState->camera.Position);
         starDestroyerShader.setFloat("material.shininess", 32.0f);
+
+        starDestroyerShader.setVec3("spotLight.position", spotLight.position);
+        starDestroyerShader.setVec3("spotLight.direction", spotLight.direction);
+        starDestroyerShader.setVec3("spotLight.ambient", spotLight.ambient);
+        starDestroyerShader.setVec3("spotLight.diffuse", spotLight.diffuse);
+        starDestroyerShader.setVec3("spotLight.specular", spotLight.specular);
+        starDestroyerShader.setFloat("spotLight.constant", spotLight.constant);
+        starDestroyerShader.setFloat("spotLight.linear", spotLight.linear);
+        starDestroyerShader.setFloat("spotLight.quadratic", spotLight.quadratic);
+        starDestroyerShader.setFloat("spotLight.cutOff", spotLight.cutOff);
+        starDestroyerShader.setFloat("spotLight.outerCutOff", spotLight.outerCutOff);
 
         starDestroyerShader.setMat4("projection", projection);
         starDestroyerShader.setMat4("view", view);
@@ -339,7 +376,7 @@ int main() {
         rebelShipShader.use();
         rebelShipShader.setVec3("dirLight.direction",1.0f, 0.0f, 0.0f);
         rebelShipShader.setVec3("dirLight.specular", 0.8f, 0.8f, 0.8f);
-        rebelShipShader.setVec3("dirLight.diffuse", 0.95f, 0.95f, 0.95f);
+        rebelShipShader.setVec3("dirLight.diffuse", 0.75f, 0.75f, 0.75f);
         rebelShipShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
         rebelShipShader.setVec3("viewPosition", programState->camera.Position);
         rebelShipShader.setFloat("material.shininess", 32.0f);
@@ -520,6 +557,9 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
         } else {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
+    }
+    if(key == GLFW_KEY_SPACE && action == GLFW_PRESS){
+        TurnOnTheBrightLights =TurnOnTheBrightLights ? TurnOnTheBrightLights=false : TurnOnTheBrightLights=true;
     }
 }
 unsigned int loadTexture(char const * path)
