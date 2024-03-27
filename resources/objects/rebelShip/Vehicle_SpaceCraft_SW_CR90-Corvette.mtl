@@ -1,0 +1,14 @@
+# Blender 4.0.2 MTL File: 'Vehicle_SpaceCraft_SW_CR90-Corvette.blend'
+# www.blender.org
+
+newmtl SW_CR90
+Ka 1.000000 1.000000 1.000000
+Ks 0.500000 0.500000 0.500000
+Ni 1.450000
+d 1.000000
+illum 2
+map_Kd SW_CR90_Color_Baked.png
+map_Ns SW_CR90_Roughness.png
+map_Ke SW_CR90_Emission.png
+disp SW_CR90_Height_Baked.png
+

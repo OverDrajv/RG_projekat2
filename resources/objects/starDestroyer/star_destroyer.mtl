@@ -82,10 +82,7 @@ newmtl 20___Default
 	Kd 0.5882 0.5882 0.5882
 	Ks 0.0000 0.0000 0.0000
 	Ke 0.0000 0.0000 0.0000
-	map_Ka tubes.jpg
-	map_Kd tubes.jpg
-	map_bump tubes.jpg
-	bump tubes.jpg
+
 
 newmtl wire_153228184
 	Ns 32
@@ -118,10 +115,7 @@ newmtl hangar
 	Kd 0.5882 0.5882 0.5882
 	Ks 0.7470 0.7470 0.7470
 	Ke 0.0000 0.0000 0.0000
-	map_Ka hangar.jpg
-	map_Kd hangar.jpg
-	map_bump hangar.jpg
-	bump hangar.jpg
+
 
 newmtl wire_225198087
 	Ns 32

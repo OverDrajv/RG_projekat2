@@ -176,7 +176,7 @@ int main() {
     Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     Shader skyBoxShader("resources/shaders/skyBox.vs", "resources/shaders/skyBox.fs");
     Shader starDestroyerShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
-    Shader asteroidShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
+    Shader rebelShipShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     Shader asteroidFieldShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     // load models
     // -----------
@@ -184,8 +184,8 @@ int main() {
     ourModel.SetShaderTextureNamePrefix("material.");
     Model starDestroyerModel("resources/objects/starDestroyer/star_destroyer.obj");
     starDestroyerModel.SetShaderTextureNamePrefix("material.");
-    Model asteroidModel("resources/objects/proba/Vehicle_SpaceCraft_SW_CR90-Corvette.obj");
-    asteroidModel.SetShaderTextureNamePrefix("material.");
+    Model rebelShipModel("resources/objects/rebelShip/Vehicle_SpaceCraft_SW_CR90-Corvette.obj");
+    rebelShipModel.SetShaderTextureNamePrefix("material.");
     Model asteroidFieldModel("resources/objects/asteroidField/asteroid_03_01.obj");
     asteroidFieldModel.SetShaderTextureNamePrefix("material.");
 
@@ -293,42 +293,14 @@ int main() {
 
         // don't forget to enable shader before setting uniforms
         ourShader.use();
-        starDestroyerShader.use();
-        asteroidShader.use();
-        asteroidFieldShader.use();
 
         //lights
         ourShader.setVec3("dirLight.direction",1.0f, 0.0f, 0.0f);
         ourShader.setVec3("dirLight.specular", 0.8f, 0.8f, 0.8f);
         ourShader.setVec3("dirLight.diffuse", 0.95f, 0.95f, 0.95f);
         ourShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
-
-        starDestroyerShader.setVec3("dirLight.direction",1.0f, 0.0f, 0.0f);
-        starDestroyerShader.setVec3("dirLight.specular", 0.8f, 0.8f, 0.8f);
-        starDestroyerShader.setVec3("dirLight.diffuse", 0.95f, 0.95f, 0.95f);
-        starDestroyerShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
-
-        asteroidShader.setVec3("dirLight.direction",1.0f, 0.0f, 0.0f);
-        asteroidShader.setVec3("dirLight.specular", 0.8f, 0.8f, 0.8f);
-        asteroidShader.setVec3("dirLight.diffuse", 0.95f, 0.95f, 0.95f);
-        asteroidShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
-
-        asteroidFieldShader.setVec3("dirLight.direction",1.0f, 0.0f, 0.0f);
-        asteroidFieldShader.setVec3("dirLight.specular", 0.8f, 0.8f, 0.8f);
-        asteroidFieldShader.setVec3("dirLight.diffuse", 0.95f, 0.95f, 0.95f);
-        asteroidFieldShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
-
-        pointLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
-        ourShader.setVec3("pointLight.position", pointLight.position);
-        ourShader.setVec3("pointLight.ambient", pointLight.ambient);
-        ourShader.setVec3("pointLight.diffuse", pointLight.diffuse);
-        ourShader.setVec3("pointLight.specular", pointLight.specular);
-        ourShader.setFloat("pointLight.constant", pointLight.constant);
-        ourShader.setFloat("pointLight.linear", pointLight.linear);
-        ourShader.setFloat("pointLight.quadratic", pointLight.quadratic);
         ourShader.setVec3("viewPosition", programState->camera.Position);
         ourShader.setFloat("material.shininess", 32.0f);
-
 
         // view/projection transformations
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
@@ -337,43 +309,70 @@ int main() {
 
         ourShader.setMat4("projection", projection);
         ourShader.setMat4("view", view);
-        starDestroyerShader.setMat4("projection", projection);
-        starDestroyerShader.setMat4("view", view);
-        asteroidShader.setMat4("projection", projection);
-        asteroidShader.setMat4("view", view);
-        asteroidFieldShader.setMat4("projection", projection);
-        asteroidFieldShader.setMat4("view", view);
-
 
         // render the loaded model
         glm::mat4 model = glm::mat4(1.0f);
-        glm::mat4 model2 = glm::mat4(1.0f);
-        glm::mat4 model3 = glm::mat4(1.0f);
-        glm::mat4 model4 = glm::mat4(1.0f);
-
         model = glm::translate(model,
                                glm::vec3 (0.0f)); // translate it down so it's at the center of the scene
         model = glm::scale(model, glm::vec3(1.0f));    // it's a bit too big for our scene, so scale it down
         ourShader.setMat4("model", model);
         ourModel.Draw(ourShader);
 
+        //Star Destroyer
+        starDestroyerShader.use();
+        starDestroyerShader.setVec3("dirLight.direction",1.0f, 0.0f, 0.0f);
+        starDestroyerShader.setVec3("dirLight.specular", 0.8f, 0.8f, 0.8f);
+        starDestroyerShader.setVec3("dirLight.diffuse", 0.95f, 0.95f, 0.95f);
+        starDestroyerShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
+        starDestroyerShader.setVec3("viewPosition", programState->camera.Position);
+        starDestroyerShader.setFloat("material.shininess", 32.0f);
+
+        starDestroyerShader.setMat4("projection", projection);
+        starDestroyerShader.setMat4("view", view);
+
+        glm::mat4 model2 = glm::mat4(1.0f);
         model2 = glm::translate(model2, glm::vec3(10.0f, -15.0f, -35.0f));
         model2 = glm::scale(model2, glm::vec3(0.2f));
         starDestroyerShader.setMat4("model", model2);
         starDestroyerModel.Draw(starDestroyerShader);
+        //rebelShip
+        rebelShipShader.use();
+        rebelShipShader.setVec3("dirLight.direction",1.0f, 0.0f, 0.0f);
+        rebelShipShader.setVec3("dirLight.specular", 0.8f, 0.8f, 0.8f);
+        rebelShipShader.setVec3("dirLight.diffuse", 0.95f, 0.95f, 0.95f);
+        rebelShipShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
+        rebelShipShader.setVec3("viewPosition", programState->camera.Position);
+        rebelShipShader.setFloat("material.shininess", 32.0f);
 
+        rebelShipShader.setMat4("projection", projection);
+        rebelShipShader.setMat4("view", view);
+
+
+        glm::mat4 model3 = glm::mat4(1.0f);
         model3 = glm::translate(model3, glm::vec3(35.0f, 5.0f, +25.0f));
         model3 = glm::scale(model3, glm::vec3(0.1f));
         model3 = glm::rotate(model3, glm::radians(180.0f), glm::vec3(1.0f, 0.0f, -0.5f));
-        asteroidShader.setMat4("model", model3);
-        asteroidModel.Draw(asteroidShader);
+        rebelShipShader.setMat4("model", model3);
+        rebelShipModel.Draw(rebelShipShader);
+        //asteroid Field
+        asteroidFieldShader.use();
 
+        asteroidFieldShader.setVec3("dirLight.direction",-1.0f, 0.0f, 0.0f);
+        asteroidFieldShader.setVec3("dirLight.specular", 0.8f, 0.8f, 0.8f);
+        asteroidFieldShader.setVec3("dirLight.diffuse", 0.95f, 0.95f, 0.95f);
+        asteroidFieldShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
+        asteroidFieldShader.setVec3("viewPosition", programState->camera.Position);
+        asteroidFieldShader.setFloat("material.shininess", 32.0f);
+
+        asteroidFieldShader.setMat4("projection", projection);
+        asteroidFieldShader.setMat4("view", view);
+
+        glm::mat4 model4 = glm::mat4(1.0f);
         model4 = glm::translate(model4, programState->backpackPosition);
         model4 = glm::scale(model4, glm::vec3(programState->backpackScale));
-        model4 = glm::rotate(model4, currentFrame/2, glm::vec3(0.0f, 0.5f, 1.0f));
+        //model4 = glm::rotate(model4, currentFrame/2, glm::vec3(0.0f, 0.5f, 1.0f));
         asteroidFieldShader.setMat4("model", model4);
         asteroidFieldModel.Draw(asteroidFieldShader);
-
         // draw skybox as last
         glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
         skyBoxShader.use();
@@ -406,6 +405,9 @@ int main() {
     ImGui::DestroyContext();
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
+    glDeleteVertexArrays(1, &skyboxVAO);
+    glDeleteBuffers(1, &skyboxVAO);
+
     glfwTerminate();
     return 0;
 }
