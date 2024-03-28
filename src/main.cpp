@@ -255,6 +255,8 @@ int main() {
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
+    unsigned int planetTexture = loadTexture("resources/textures/planet.png");
+
     vector <std::string> faces{
         "resources/textures/skybox/right.png",
         "resources/textures/skybox/left.png",
@@ -294,6 +296,7 @@ int main() {
     //
     skyBoxShader.use();
     skyBoxShader.setInt("skybox", 0);
+    skyBoxShader.setInt("planetTexture", 1);
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window)) {
@@ -417,6 +420,11 @@ int main() {
         //model4 = glm::rotate(model4, currentFrame/2, glm::vec3(0.0f, 0.5f, 1.0f));
         asteroidFieldShader.setMat4("model", model4);
         asteroidFieldModel.Draw(asteroidFieldShader);
+
+        //planetTexture
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, planetTexture);
+
         // draw skybox as last
         glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
         skyBoxShader.use();
@@ -429,6 +437,7 @@ int main() {
         glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
+        glBindTexture(GL_TEXTURE_2D, 0);
         glDepthFunc(GL_LESS); // set depth function back to default
 
         if (programState->ImGuiEnabled)
@@ -593,8 +602,8 @@ unsigned int loadTexture(char const * path)
         glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
 
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, format == GL_RGBA ? GL_CLAMP_TO_EDGE : GL_REPEAT); // for this tutorial: use GL_CLAMP_TO_EDGE to prevent semi-transparent borders. Due to interpolation it takes texels from next repeat
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, format == GL_RGBA ? GL_CLAMP_TO_EDGE : GL_REPEAT);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
