@@ -44,6 +44,7 @@ bool firstMouse = true;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+bool Blinn = false;
 bool TurnOnTheBrightLights = false;
 
 struct SpotLight {
@@ -179,6 +180,9 @@ int main() {
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_CULL_FACE);
+    glCullFace(GL_BACK);
+    glFrontFace(GL_CCW);
 
     // build and compile shaders
     // -------------------------
@@ -319,6 +323,7 @@ int main() {
         ourShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
         ourShader.setVec3("viewPosition", programState->camera.Position);
         ourShader.setFloat("material.shininess", 32.0f);
+        ourShader.setBool("Blinn", Blinn);
 
         // view/projection transformations
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
@@ -330,8 +335,7 @@ int main() {
 
         // render the loaded model
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model,
-                               glm::vec3 (0.0f)); // translate it down so it's at the center of the scene
+        model = glm::translate(model,glm::vec3 (0.0f)); // translate it down so it's at the center of the scene
         model = glm::scale(model, glm::vec3(1.0f));    // it's a bit too big for our scene, so scale it down
         ourShader.setMat4("model", model);
         ourModel.Draw(ourShader);
@@ -352,6 +356,7 @@ int main() {
         starDestroyerShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
         starDestroyerShader.setVec3("viewPosition", programState->camera.Position);
         starDestroyerShader.setFloat("material.shininess", 32.0f);
+        starDestroyerShader.setBool("Blinn", Blinn);
 
         starDestroyerShader.setVec3("spotLight.position", spotLight.position);
         starDestroyerShader.setVec3("spotLight.direction", spotLight.direction);
@@ -380,6 +385,7 @@ int main() {
         rebelShipShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
         rebelShipShader.setVec3("viewPosition", programState->camera.Position);
         rebelShipShader.setFloat("material.shininess", 32.0f);
+        rebelShipShader.setBool("Blinn", Blinn);
 
         rebelShipShader.setMat4("projection", projection);
         rebelShipShader.setMat4("view", view);
@@ -400,6 +406,7 @@ int main() {
         asteroidFieldShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
         asteroidFieldShader.setVec3("viewPosition", programState->camera.Position);
         asteroidFieldShader.setFloat("material.shininess", 32.0f);
+        asteroidFieldShader.setBool("Blinn", Blinn);
 
         asteroidFieldShader.setMat4("projection", projection);
         asteroidFieldShader.setMat4("view", view);
@@ -560,6 +567,9 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
     }
     if(key == GLFW_KEY_SPACE && action == GLFW_PRESS){
         TurnOnTheBrightLights =TurnOnTheBrightLights ? TurnOnTheBrightLights=false : TurnOnTheBrightLights=true;
+    }
+    if(key == GLFW_KEY_B && action ==GLFW_PRESS){
+        Blinn = Blinn ? Blinn=false: Blinn=true;
     }
 }
 unsigned int loadTexture(char const * path)
