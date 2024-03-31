@@ -18,5 +18,11 @@ void main()
         // Mix the colors based on some condition or blending factor
         // Here, we can use the planet texture's alpha channel as a blending factor
         // Adjust this based on your requirements
-        FragColor = mix(skyboxColor, planetColor, planetColor.a);
+
+        if(TexCoords.z>0.0){
+            FragColor = skyboxColor;
+        }
+        else{
+            FragColor = mix(skyboxColor, planetColor, planetColor.a);
+        }
 }
