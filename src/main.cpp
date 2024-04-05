@@ -30,9 +30,11 @@ unsigned int loadTexture(const char *path);
 
 unsigned int loadCubemap(vector<std::string> faces);
 
+void renderQuad();
+
 // settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+const unsigned int SCR_WIDTH = 1200;
+const unsigned int SCR_HEIGHT = 1000;
 
 // camera
 
@@ -46,6 +48,8 @@ float lastFrame = 0.0f;
 
 bool Blinn = false;
 bool TurnOnTheBrightLights = false;
+bool hdr=false;
+float exposure = 1.0f;
 
 struct SpotLight {
     glm::vec3 position;
@@ -191,6 +195,7 @@ int main() {
     Shader starDestroyerShader("resources/shaders/newShader.vs", "resources/shaders/newShader.fs");
     Shader rebelShipShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     Shader asteroidFieldShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
+    Shader hdrShader("resources/shaders/hdr.vs","resources/shaders/hdr.fs");
     // load models
     // -----------
     Model ourModel("resources/objects/xwing/XWing_Woody.obj");
@@ -202,7 +207,30 @@ int main() {
     Model asteroidFieldModel("resources/objects/asteroidField/asteroid_03_01.obj");
     asteroidFieldModel.SetShaderTextureNamePrefix("material.");
 
-//skyBox
+    //hdr
+    unsigned int hdrFBO;
+    glGenFramebuffers(1, &hdrFBO);
+    // create floating point color buffer
+    unsigned int colorBuffer;
+    glGenTextures(1, &colorBuffer);
+    glBindTexture(GL_TEXTURE_2D, colorBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // create depth buffer (renderbuffer)
+    unsigned int rboDepth;
+    glGenRenderbuffers(1, &rboDepth);
+    glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
+    // attach buffers
+    glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffer, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    //skyBox
     float skyBoxVertices[] = {
             -1.0f,  1.0f, -1.0f,
             -1.0f, -1.0f, -1.0f,
@@ -297,6 +325,9 @@ int main() {
     skyBoxShader.use();
     skyBoxShader.setInt("skybox", 0);
     skyBoxShader.setInt("planetTexture", 1);
+
+    hdrShader.use();
+    hdrShader.setInt("hdrBuffer", 0);
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window)) {
@@ -316,6 +347,9 @@ int main() {
         glClearColor(programState->clearColor.r, programState->clearColor.g, programState->clearColor.b, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        //hdr, postavljamo floating point buffer
+        glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         // don't forget to enable shader before setting uniforms
         ourShader.use();
 
@@ -440,9 +474,20 @@ int main() {
         glBindTexture(GL_TEXTURE_2D, 0);
         glDepthFunc(GL_LESS); // set depth function back to default
 
-        if (programState->ImGuiEnabled)
-            DrawImGui(programState);
+        //if (programState->ImGuiEnabled)
+        //    DrawImGui(programState);
 
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        //hdr post-processing effect
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        hdrShader.use();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, colorBuffer);
+        hdrShader.setInt("hdr", hdr);
+        hdrShader.setFloat("exposure", exposure);
+        renderQuad();
+
+        std::cout << "hdr: " << (hdr ? "on" : "off") << "| exposure: " << exposure << std::endl;
 
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
@@ -464,6 +509,37 @@ int main() {
     glfwTerminate();
     return 0;
 }
+
+
+unsigned int quadVAO = 0;
+unsigned int quadVBO;
+void renderQuad()
+{
+    if (quadVAO == 0)
+    {
+        float quadVertices[] = {
+                // positions        // texture Coords
+                -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+                -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+                1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+                1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+        };
+        // setup plane VAO
+        glGenVertexArrays(1, &quadVAO);
+        glGenBuffers(1, &quadVBO);
+        glBindVertexArray(quadVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    }
+    glBindVertexArray(quadVAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(0);
+}
+
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
@@ -579,6 +655,18 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
     }
     if(key == GLFW_KEY_B && action ==GLFW_PRESS){
         Blinn = Blinn ? Blinn=false: Blinn=true;
+    }
+    if(key == GLFW_KEY_H && action == GLFW_PRESS){
+        hdr = !hdr;
+    }
+    if(key == GLFW_KEY_Q && action == GLFW_PRESS){
+        if(exposure > 0.0f)
+            exposure -=0.01f;
+        else
+            exposure = 0.0f;
+    }
+    if(key == GLFW_KEY_E && action == GLFW_PRESS){
+        exposure += 0.01f;
     }
 }
 unsigned int loadTexture(char const * path)
