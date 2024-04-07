@@ -33,8 +33,8 @@ unsigned int loadCubemap(vector<std::string> faces);
 void renderQuad();
 
 // settings
-const unsigned int SCR_WIDTH = 1200;
-const unsigned int SCR_HEIGHT = 1000;
+const unsigned int SCR_WIDTH = 1600;
+const unsigned int SCR_HEIGHT = 900;
 
 // camera
 
@@ -48,6 +48,7 @@ float lastFrame = 0.0f;
 
 bool Blinn = false;
 bool TurnOnTheBrightLights = false;
+bool bloom;
 bool hdr=false;
 float exposure = 1.0f;
 
@@ -75,6 +76,13 @@ struct PointLight {
     float constant;
     float linear;
     float quadratic;
+};
+
+struct DirLight{
+    glm::vec3 direction;
+    glm::vec3 ambient;
+    glm::vec3 diffuse;
+    glm::vec3 specular;
 };
 
 struct ProgramState {
@@ -195,6 +203,7 @@ int main() {
     Shader starDestroyerShader("resources/shaders/newShader.vs", "resources/shaders/newShader.fs");
     Shader rebelShipShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     Shader asteroidFieldShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
+    Shader blurShader("resources/shaders/blur.vs", "resources/shaders/blur.fs");
     Shader hdrShader("resources/shaders/hdr.vs","resources/shaders/hdr.fs");
     // load models
     // -----------
@@ -206,29 +215,6 @@ int main() {
     rebelShipModel.SetShaderTextureNamePrefix("material.");
     Model asteroidFieldModel("resources/objects/asteroidField/asteroid_03_01.obj");
     asteroidFieldModel.SetShaderTextureNamePrefix("material.");
-
-    //hdr
-    unsigned int hdrFBO;
-    glGenFramebuffers(1, &hdrFBO);
-    // create floating point color buffer
-    unsigned int colorBuffer;
-    glGenTextures(1, &colorBuffer);
-    glBindTexture(GL_TEXTURE_2D, colorBuffer);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    // create depth buffer (renderbuffer)
-    unsigned int rboDepth;
-    glGenRenderbuffers(1, &rboDepth);
-    glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
-    // attach buffers
-    glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, colorBuffer, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        std::cout << "Framebuffer not complete!" << std::endl;
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
     //skyBox
     float skyBoxVertices[] = {
@@ -283,7 +269,56 @@ int main() {
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
 
-    unsigned int planetTexture = loadTexture("resources/textures/planetrotation.png");
+    unsigned int hdrFBO;
+    glGenFramebuffers(1, &hdrFBO);
+    glBindFramebuffer(GL_FRAMEBUFFER, hdrFBO);
+    // create 2 floating point color buffers (1 for normal rendering, other for brightness threshold values)
+    unsigned int colorBuffers[2];
+    glGenTextures(2, colorBuffers);
+    for (unsigned int i = 0; i < 2; i++)
+    {
+        glBindTexture(GL_TEXTURE_2D, colorBuffers[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);  // we clamp to the edge as the blur filter would otherwise sample repeated texture values!
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        // attach texture to framebuffer
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, colorBuffers[i], 0);
+    }
+    // create and attach depth buffer (renderbuffer)
+    unsigned int rboDepth;
+    glGenRenderbuffers(1, &rboDepth);
+    glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
+    // tell OpenGL which color attachments we'll use (of this framebuffer) for rendering
+    unsigned int attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glDrawBuffers(2, attachments);
+    // finally check if framebuffer is complete
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cout << "Framebuffer not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    // ping-pong-framebuffer for blurring
+    unsigned int pingpongFBO[2];
+    unsigned int pingpongColorbuffers[2];
+    glGenFramebuffers(2, pingpongFBO);
+    glGenTextures(2, pingpongColorbuffers);
+    for (unsigned int i = 0; i < 2; i++)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[i]);
+        glBindTexture(GL_TEXTURE_2D, pingpongColorbuffers[i]);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, SCR_WIDTH, SCR_HEIGHT, 0, GL_RGBA, GL_FLOAT, NULL);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE); // we clamp to the edge as the blur filter would otherwise sample repeated texture values!
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, pingpongColorbuffers[i], 0);
+        // also check if framebuffers are complete (no need for depth buffer)
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+            std::cout << "Framebuffer not complete!" << std::endl;
+    }
 
     vector <std::string> faces{
         "resources/textures/skybox/right.png",
@@ -295,7 +330,7 @@ int main() {
     };
 
     unsigned int cubemapTexture = loadCubemap(faces);
-
+    unsigned int planetTexture = loadTexture("resources/textures/planetrotation.png");
 
     PointLight& pointLight = programState->pointLight;
     pointLight.position = glm::vec3(4.0f, 4.0, 0.0);
@@ -316,6 +351,13 @@ int main() {
     spotLight.quadratic = 0.01f;
     spotLight.cutOff = glm::cos(glm::radians(15.0f));
     spotLight.outerCutOff = glm::cos(glm::radians(30.0f));
+
+    DirLight sun;
+    sun.direction = glm::vec3(1.0f, 0.0f, 0.0f);
+    sun.ambient = glm::vec3(0.2f);
+    sun.specular = glm::vec3(0.8f);
+    sun.diffuse = glm::vec3 (0.95f);
+
     // draw in wireframe
     //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
@@ -326,8 +368,12 @@ int main() {
     skyBoxShader.setInt("skybox", 0);
     skyBoxShader.setInt("planetTexture", 1);
 
+    blurShader.use();
+    blurShader.setInt("image", 0);
+
     hdrShader.use();
     hdrShader.setInt("hdrBuffer", 0);
+    hdrShader.setInt("bloomBlur", 1);
     // render loop
     // -----------
     while (!glfwWindowShouldClose(window)) {
@@ -354,10 +400,10 @@ int main() {
         ourShader.use();
 
         //lights
-        ourShader.setVec3("dirLight.direction",1.0f, 0.0f, 0.0f);
-        ourShader.setVec3("dirLight.specular", 0.8f, 0.8f, 0.8f);
-        ourShader.setVec3("dirLight.diffuse", 0.95f, 0.95f, 0.95f);
-        ourShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
+        ourShader.setVec3("dirLight.direction",sun.direction);
+        ourShader.setVec3("dirLight.specular", sun.specular);
+        ourShader.setVec3("dirLight.diffuse", sun.diffuse);
+        ourShader.setVec3("dirLight.ambient", sun.ambient);
         ourShader.setVec3("viewPosition", programState->camera.Position);
         ourShader.setFloat("material.shininess", 32.0f);
         ourShader.setBool("Blinn", Blinn);
@@ -380,17 +426,17 @@ int main() {
         //Star Destroyer
         if(TurnOnTheBrightLights){
             spotLight.specular = glm::vec3 (0.9f);
-            spotLight.diffuse = glm::vec3 (0.8f);
+            spotLight.diffuse = glm::vec3 (5.0f, 0.2f, 0.2f);
         }
         else{
             spotLight.specular = glm::vec3 (0.0f);
             spotLight.diffuse = glm::vec3 (0.0f);
         }
         starDestroyerShader.use();
-        starDestroyerShader.setVec3("dirLight.direction",1.0f, 0.0f, 0.0f);
-        starDestroyerShader.setVec3("dirLight.specular", 0.8f, 0.8f, 0.8f);
-        starDestroyerShader.setVec3("dirLight.diffuse", 0.95f, 0.95f, 0.95f);
-        starDestroyerShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
+        starDestroyerShader.setVec3("dirLight.direction",sun.direction);
+        starDestroyerShader.setVec3("dirLight.specular", sun.specular);
+        starDestroyerShader.setVec3("dirLight.diffuse", sun.diffuse);
+        starDestroyerShader.setVec3("dirLight.ambient", sun.ambient);
         starDestroyerShader.setVec3("viewPosition", programState->camera.Position);
         starDestroyerShader.setFloat("material.shininess", 32.0f);
         starDestroyerShader.setBool("Blinn", Blinn);
@@ -416,10 +462,10 @@ int main() {
         starDestroyerModel.Draw(starDestroyerShader);
         //rebelShip
         rebelShipShader.use();
-        rebelShipShader.setVec3("dirLight.direction",1.0f, 0.0f, 0.0f);
-        rebelShipShader.setVec3("dirLight.specular", 0.8f, 0.8f, 0.8f);
-        rebelShipShader.setVec3("dirLight.diffuse", 0.75f, 0.75f, 0.75f);
-        rebelShipShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
+        rebelShipShader.setVec3("dirLight.direction",sun.direction);
+        rebelShipShader.setVec3("dirLight.specular", sun.specular);
+        rebelShipShader.setVec3("dirLight.diffuse", sun.diffuse*0.7f);
+        rebelShipShader.setVec3("dirLight.ambient", sun.ambient);
         rebelShipShader.setVec3("viewPosition", programState->camera.Position);
         rebelShipShader.setFloat("material.shininess", 32.0f);
         rebelShipShader.setBool("Blinn", Blinn);
@@ -437,10 +483,10 @@ int main() {
         //asteroid Field
         asteroidFieldShader.use();
 
-        asteroidFieldShader.setVec3("dirLight.direction",-1.0f, 0.0f, 0.0f);
-        asteroidFieldShader.setVec3("dirLight.specular", 0.8f, 0.8f, 0.8f);
-        asteroidFieldShader.setVec3("dirLight.diffuse", 0.95f, 0.95f, 0.95f);
-        asteroidFieldShader.setVec3("dirLight.ambient", 0.2f, 0.2f, 0.2f);
+        asteroidFieldShader.setVec3("dirLight.direction",-sun.direction);
+        asteroidFieldShader.setVec3("dirLight.specular", sun.specular);
+        asteroidFieldShader.setVec3("dirLight.diffuse", sun.diffuse);
+        asteroidFieldShader.setVec3("dirLight.ambient", sun.ambient);
         asteroidFieldShader.setVec3("viewPosition", programState->camera.Position);
         asteroidFieldShader.setFloat("material.shininess", 32.0f);
         asteroidFieldShader.setBool("Blinn", Blinn);
@@ -478,15 +524,35 @@ int main() {
         //    DrawImGui(programState);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        //bloom part
+        bool horizontal = true, first_iteration = true;
+        unsigned int amount = 10;
+        blurShader.use();
+        for (unsigned int i = 0; i < amount; i++)
+        {
+            glBindFramebuffer(GL_FRAMEBUFFER, pingpongFBO[horizontal]);
+            blurShader.setInt("horizontal", horizontal);
+            glBindTexture(GL_TEXTURE_2D, first_iteration ? colorBuffers[1] : pingpongColorbuffers[!horizontal]);  // bind texture of other framebuffer (or scene if first iteration)
+            renderQuad();
+            horizontal = !horizontal;
+            if (first_iteration)
+                first_iteration = false;
+        }
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
         //hdr post-processing effect
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         hdrShader.use();
         glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, colorBuffer);
+        glBindTexture(GL_TEXTURE_2D, colorBuffers[0]);
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, pingpongColorbuffers[!horizontal]);
         hdrShader.setInt("hdr", hdr);
+        hdrShader.setInt("bloom", bloom);
         hdrShader.setFloat("exposure", exposure);
         renderQuad();
 
+        std::cout << "bloom: " << (bloom ? "on" : "off") << std::endl;
         std::cout << "hdr: " << (hdr ? "on" : "off") << "| exposure: " << exposure << std::endl;
 
 
@@ -667,6 +733,10 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
     }
     if(key == GLFW_KEY_E && action == GLFW_PRESS){
         exposure += 0.01f;
+    }
+
+    if(key == GLFW_KEY_M && action == GLFW_PRESS){
+        bloom = bloom ? bloom=false: bloom=true;
     }
 }
 unsigned int loadTexture(char const * path)

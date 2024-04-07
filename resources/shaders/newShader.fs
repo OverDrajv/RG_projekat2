@@ -1,5 +1,7 @@
 #version 330 core
-out vec4 FragColor;
+
+layout (location = 0) out vec4 FragColor;
+layout (location = 1) out vec4 BrightColor;
 
 struct DirLight {
     vec3 direction;
@@ -73,7 +75,7 @@ vec3 CalcSpotLight(SpotLight light, vec3 normal, vec3 fragPos, vec3 viewDir)
     float spec=0.0;
         if(Blinn){
             vec3 halfwayDir = normalize(lightDir + viewDir);//dodali
-            spec = pow(max(dot(normal, halfwayDir), 0.0), material.shininess);
+            spec = pow(max(dot(normal, halfwayDir), 0.0), 4*material.shininess);
             }
         else{
             vec3 reflectDir = reflect(-lightDir, normal);
@@ -103,4 +105,9 @@ void main()
     vec3 result = CalcDirLight(dirLight, normal, viewDir);
     result += CalcSpotLight(spotLight, normal, FragPos, viewDir);
     FragColor = vec4(result, 1.0);
+    float brightness = dot(result, vec3(0.2126, 0.7152, 0.0722));
+    if(brightness > 1.0)
+        BrightColor = vec4(result, 1.0);
+    else
+        BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
 }
