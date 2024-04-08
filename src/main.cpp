@@ -51,6 +51,7 @@ bool TurnOnTheBrightLights = false;
 bool bloom;
 bool hdr=false;
 float exposure = 1.0f;
+bool spectatorMode = false;
 
 struct SpotLight {
     glm::vec3 position;
@@ -133,6 +134,15 @@ void ProgramState::LoadFromFile(std::string filename) {
 
 ProgramState *programState;
 
+//xwing
+glm::vec3 xwingOffset = glm::vec3(0.0f, -3.0f, -10.0f);
+glm::vec3 xwingPosition = glm::vec3(0.0f);
+glm::vec3 xwingLightOffset = glm::vec3 (0.00577375f ,0.257113f ,-6.42628f);
+glm::vec3 xwingLightPosition = glm::vec3(0.0f);
+glm::vec3 xwingLightDirection = glm::vec3(0.0f, 0.0f, -1.0f);
+
+glm::vec3 xwingRotation = glm::vec3(0.0f);
+
 void DrawImGui(ProgramState *programState);
 
 int main() {
@@ -184,7 +194,8 @@ int main() {
     ImGuiIO &io = ImGui::GetIO();
     (void) io;
 
-
+    xwingPosition = programState->camera.Position + xwingOffset;
+    //xwingLightPosition = xwingLightPosition + xwingPosition;
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330 core");
@@ -418,8 +429,15 @@ int main() {
 
         // render the loaded model
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model,glm::vec3 (0.0f)); // translate it down so it's at the center of the scene
+        model = glm::translate(model,xwingPosition); // translate it down so it's at the center of the scene
         model = glm::scale(model, glm::vec3(1.0f));    // it's a bit too big for our scene, so scale it down
+        model = glm::rotate(model, glm::radians(xwingRotation.x), glm::vec3(0.0f, -1.0f, 0.0f));
+        model = glm::rotate(model, glm::radians(xwingRotation.y), glm::vec3(1.0f, 0.0f, 0.0f));
+
+        glm::vec4 xwingLightPosition2 = model * glm::vec4(xwingLightOffset, 1.0f);
+        xwingLightPosition = glm::vec3(xwingLightPosition2);
+        xwingLightDirection = programState->camera.Front;
+
         ourShader.setMat4("model", model);
         ourModel.Draw(ourShader);
 
@@ -441,8 +459,8 @@ int main() {
         starDestroyerShader.setFloat("material.shininess", 32.0f);
         starDestroyerShader.setBool("Blinn", Blinn);
 
-        starDestroyerShader.setVec3("spotLight.position", spotLight.position);
-        starDestroyerShader.setVec3("spotLight.direction", spotLight.direction);
+        starDestroyerShader.setVec3("spotLight.position", xwingLightPosition);
+        starDestroyerShader.setVec3("spotLight.direction", xwingLightDirection);
         starDestroyerShader.setVec3("spotLight.ambient", spotLight.ambient);
         starDestroyerShader.setVec3("spotLight.diffuse", spotLight.diffuse);
         starDestroyerShader.setVec3("spotLight.specular", spotLight.specular);
@@ -621,6 +639,9 @@ void processInput(GLFWwindow *window) {
         programState->camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         programState->camera.ProcessKeyboard(RIGHT, deltaTime);
+
+
+    xwingPosition = programState->camera.Position + xwingOffset;
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -662,6 +683,10 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
         // Unlock the mouse otherwise
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
+
+    xwingRotation.x = programState->camera.Yaw+90;
+    xwingRotation.y = programState->camera.Pitch;
+
 }
 
 
