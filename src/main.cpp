@@ -212,8 +212,8 @@ int main() {
     Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
     Shader skyBoxShader("resources/shaders/skyBox.vs", "resources/shaders/skyBox.fs");
     Shader starDestroyerShader("resources/shaders/newShader.vs", "resources/shaders/newShader.fs");
-    Shader rebelShipShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
-    Shader asteroidFieldShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
+    Shader rebelShipShader("resources/shaders/newShader.vs", "resources/shaders/newShader.fs");
+    Shader asteroidFieldShader("resources/shaders/oppositeShader.vs", "resources/shaders/newShader.fs");
     Shader blurShader("resources/shaders/blur.vs", "resources/shaders/blur.fs");
     Shader hdrShader("resources/shaders/hdr.vs","resources/shaders/hdr.fs");
     // load models
@@ -434,10 +434,11 @@ int main() {
         model = glm::rotate(model, glm::radians(xwingRotation.x), glm::vec3(0.0f, -1.0f, 0.0f));
         model = glm::rotate(model, glm::radians(xwingRotation.y), glm::vec3(1.0f, 0.0f, 0.0f));
 
-        glm::vec4 xwingLightPosition2 = model * glm::vec4(xwingLightOffset, 1.0f);
-        xwingLightPosition = glm::vec3(xwingLightPosition2);
-        xwingLightDirection = programState->camera.Front;
-
+        if(!spectatorMode) {
+            glm::vec4 xwingLightPosition2 = model * glm::vec4(xwingLightOffset, 1.0f);
+            xwingLightPosition = glm::vec3(xwingLightPosition2);
+            xwingLightDirection = programState->camera.Front;
+        }
         ourShader.setMat4("model", model);
         ourModel.Draw(ourShader);
 
@@ -488,6 +489,17 @@ int main() {
         rebelShipShader.setFloat("material.shininess", 32.0f);
         rebelShipShader.setBool("Blinn", Blinn);
 
+        rebelShipShader.setVec3("spotLight.position", xwingLightPosition);
+        rebelShipShader.setVec3("spotLight.direction", xwingLightDirection);
+        rebelShipShader.setVec3("spotLight.ambient", spotLight.ambient);
+        rebelShipShader.setVec3("spotLight.diffuse", spotLight.diffuse);
+        rebelShipShader.setVec3("spotLight.specular", spotLight.specular);
+        rebelShipShader.setFloat("spotLight.constant", spotLight.constant);
+        rebelShipShader.setFloat("spotLight.linear", spotLight.linear);
+        rebelShipShader.setFloat("spotLight.quadratic", spotLight.quadratic);
+        rebelShipShader.setFloat("spotLight.cutOff", spotLight.cutOff);
+        rebelShipShader.setFloat("spotLight.outerCutOff", spotLight.outerCutOff);
+
         rebelShipShader.setMat4("projection", projection);
         rebelShipShader.setMat4("view", view);
 
@@ -501,7 +513,7 @@ int main() {
         //asteroid Field
         asteroidFieldShader.use();
 
-        asteroidFieldShader.setVec3("dirLight.direction",-sun.direction);
+        asteroidFieldShader.setVec3("dirLight.direction",sun.direction);
         asteroidFieldShader.setVec3("dirLight.specular", sun.specular);
         asteroidFieldShader.setVec3("dirLight.diffuse", sun.diffuse);
         asteroidFieldShader.setVec3("dirLight.ambient", sun.ambient);
@@ -509,12 +521,24 @@ int main() {
         asteroidFieldShader.setFloat("material.shininess", 32.0f);
         asteroidFieldShader.setBool("Blinn", Blinn);
 
+
+        asteroidFieldShader.setVec3("spotLight.position", xwingLightPosition);
+        asteroidFieldShader.setVec3("spotLight.direction", xwingLightDirection);
+        asteroidFieldShader.setVec3("spotLight.ambient", spotLight.ambient);
+        asteroidFieldShader.setVec3("spotLight.diffuse", spotLight.diffuse);
+        asteroidFieldShader.setVec3("spotLight.specular", spotLight.specular);
+        asteroidFieldShader.setFloat("spotLight.constant", spotLight.constant);
+        asteroidFieldShader.setFloat("spotLight.linear", spotLight.linear);
+        asteroidFieldShader.setFloat("spotLight.quadratic", spotLight.quadratic);
+        asteroidFieldShader.setFloat("spotLight.cutOff", spotLight.cutOff);
+        asteroidFieldShader.setFloat("spotLight.outerCutOff", spotLight.outerCutOff);
+
         asteroidFieldShader.setMat4("projection", projection);
         asteroidFieldShader.setMat4("view", view);
 
         glm::mat4 model4 = glm::mat4(1.0f);
-        model4 = glm::translate(model4, programState->backpackPosition);
-        model4 = glm::scale(model4, glm::vec3(programState->backpackScale));
+        model4 = glm::translate(model4, glm::vec3(0.0f));
+        model4 = glm::scale(model4, glm::vec3(1.0f));
         //model4 = glm::rotate(model4, currentFrame/2, glm::vec3(0.0f, 0.5f, 1.0f));
         asteroidFieldShader.setMat4("model", model4);
         asteroidFieldModel.Draw(asteroidFieldShader);
@@ -640,8 +664,9 @@ void processInput(GLFWwindow *window) {
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         programState->camera.ProcessKeyboard(RIGHT, deltaTime);
 
-
-    xwingPosition = programState->camera.Position + xwingOffset;
+    if(!spectatorMode) {
+        xwingPosition = programState->camera.Position + xwingOffset;
+    }
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -684,8 +709,10 @@ void mouse_callback(GLFWwindow *window, double xpos, double ypos) {
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
     }
 
-    xwingRotation.x = programState->camera.Yaw+90;
-    xwingRotation.y = programState->camera.Pitch;
+    if(!spectatorMode) {
+        xwingRotation.x = programState->camera.Yaw + 90;
+        xwingRotation.y = programState->camera.Pitch;
+    }
 
 }
 
@@ -762,6 +789,10 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
 
     if(key == GLFW_KEY_M && action == GLFW_PRESS){
         bloom = bloom ? bloom=false: bloom=true;
+    }
+
+    if(key == GLFW_KEY_I && action == GLFW_PRESS){
+        spectatorMode = true;
     }
 }
 unsigned int loadTexture(char const * path)
