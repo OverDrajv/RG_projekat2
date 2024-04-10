@@ -1,5 +1,6 @@
 # Star Wars - X-Wing Flight Simulator
 Projektni zadatak na kursu Racunarska grafika, MATF.
+
 Autor: Ognjen Drobac
 
 # Kontrole
@@ -46,4 +47,4 @@ Planet texture:
 https://www.moddb.com/members/shiny-man/images/coruscant
 
 Light Texture:
-https://www.freepnglogos.com/uploads/light-effect-png/light-effect-light-png-picsart-light-png-effect-download-pngfunm-29.png
+https://www.freeiconspng.com/thumbs/light-png/yellow-light-png-hd-19.png
