@@ -23,6 +23,6 @@ void main()
         BrightColor = color;
     else
         BrightColor = vec4(0.0, 0.0, 0.0, 1.0);
-    //FragColor = vec4(color, 1.0);
+
     FragColor = color;
 }
