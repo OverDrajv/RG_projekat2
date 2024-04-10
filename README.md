@@ -4,12 +4,17 @@ Autor: Ognjen Drobac
 
 # Kontrole
 WASD - kretanje
+
 SPACE - ukljuci/iskljuci far
+
 LEFT SHIFT - povecaj/smanji brzinu
 
 H - ukljuci/iskljuci HDR efekat
+
 B - ukljuci/iskljuci Blinn-Phong model
+
 M - ukljuci/iskljuci Bloom efekat
+
 I - ulazak u spectator mode
 
 Implementirane dodatne oblasti: Skybox, HDR i Bloom
@@ -17,6 +22,7 @@ Implementirane dodatne oblasti: Skybox, HDR i Bloom
 # Izvori:
 Skybox: 
 https://tools.wwwtyro.net/space-3d/index.html#animationSpeed=1&fov=80&nebulae=true&pointStars=true&resolution=1024&seed=ihni6ib3y1c&stars=true&sun=true
+
 Seed: (ihni6ib3y1c)
 
 # Modeli:
