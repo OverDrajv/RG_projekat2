@@ -169,9 +169,6 @@ int main() {
         return -1;
     }
 
-    // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
-    //stbi_set_flip_vertically_on_load(true);
-
     programState = new ProgramState;
     programState->LoadFromFile("resources/program_state.txt");
     if (programState->ImGuiEnabled) {
@@ -362,7 +359,7 @@ int main() {
 
     unsigned int cubemapTexture = loadCubemap(faces);
     unsigned int planetTexture = loadTexture("resources/textures/planetrotation.png");
-    unsigned  int lightTexture = loadTexture("resources/textures/svetloPink.png");
+    unsigned  int lightTexture = loadTexture("resources/textures/svetloYellow.png");
 
     SpotLight spotLight;
     spotLight.position = glm::vec3 (0.00577375,0.257113,-6.42628);
@@ -553,22 +550,22 @@ int main() {
         lightShader.setMat4("view", view);
 
         glm::mat4 modellb = glm::translate(model,xwingLBO);
-        modellb = glm::scale(modellb, glm::vec3(0.3f));
+        modellb = glm::scale(modellb, glm::vec3(0.24f));
         lightShader.setMat4("model", modellb);
         glBindVertexArray(lightVAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
         glm::mat4 modellt = glm::translate(model,glm::vec3(xwingLBO.x, -xwingLBO.y, xwingLBO.z));
-        modellt = glm::scale(modellt, glm::vec3(0.3f));
+        modellt = glm::scale(modellt, glm::vec3(0.24f));
         lightShader.setMat4("model", modellt);
         glBindVertexArray(lightVAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
         glm::mat4 modelrt = glm::translate(model,glm::vec3(-xwingLBO.x, -xwingLBO.y, xwingLBO.z));
-        modelrt = glm::scale(modelrt, glm::vec3(0.3f));
+        modelrt = glm::scale(modelrt, glm::vec3(0.24f));
         lightShader.setMat4("model", modelrt);
         glBindVertexArray(lightVAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
         glm::mat4 modelrb = glm::translate(model,glm::vec3(-xwingLBO.x, xwingLBO.y, xwingLBO.z));
-        modelrb = glm::scale(modelrb, glm::vec3(0.3f));
+        modelrb = glm::scale(modelrb, glm::vec3(0.24f));
         lightShader.setMat4("model", modelrb);
         glBindVertexArray(lightVAO);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
@@ -578,9 +575,9 @@ int main() {
         glBindTexture(GL_TEXTURE_2D, planetTexture);
 
         // draw skybox as last
-        glDepthFunc(GL_LEQUAL);  // change depth function so depth test passes when values are equal to depth buffer's content
+        glDepthFunc(GL_LEQUAL);
         skyBoxShader.use();
-        view = glm::mat4(glm::mat3(programState->camera.GetViewMatrix()));// remove translation from the view matrix
+        view = glm::mat4(glm::mat3(programState->camera.GetViewMatrix()));
         skyBoxShader.setMat4("view", view);
         skyBoxShader.setMat4("projection", projection);
         // skybox cube
@@ -590,7 +587,7 @@ int main() {
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
         glBindTexture(GL_TEXTURE_2D, 0);
-        glDepthFunc(GL_LESS); // set depth function back to default
+        glDepthFunc(GL_LESS);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         //bloom part
