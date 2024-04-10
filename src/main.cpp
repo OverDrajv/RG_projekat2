@@ -143,6 +143,8 @@ glm::vec3 xwingLightDirection = glm::vec3(0.0f, 0.0f, -1.0f);
 
 glm::vec3 xwingRotation = glm::vec3(0.0f);
 
+glm::vec3 xwingLBO = glm::vec3(-1.47279f, -0.757466f, 5.85636f);
+
 void DrawImGui(ProgramState *programState);
 
 int main() {
@@ -194,6 +196,7 @@ int main() {
     ImGuiIO &io = ImGui::GetIO();
     (void) io;
 
+    programState->camera.Position = glm::vec3(0.0f, 3.0f, 10.0f);
     xwingPosition = programState->camera.Position + xwingOffset;
     //xwingLightPosition = xwingLightPosition + xwingPosition;
 
@@ -214,6 +217,7 @@ int main() {
     Shader starDestroyerShader("resources/shaders/newShader.vs", "resources/shaders/newShader.fs");
     Shader rebelShipShader("resources/shaders/newShader.vs", "resources/shaders/newShader.fs");
     Shader asteroidFieldShader("resources/shaders/oppositeShader.vs", "resources/shaders/newShader.fs");
+    Shader lightShader("resources/shaders/lightShader.vs", "resources/shaders/lightShader.fs");
     Shader blurShader("resources/shaders/blur.vs", "resources/shaders/blur.fs");
     Shader hdrShader("resources/shaders/hdr.vs","resources/shaders/hdr.fs");
     // load models
@@ -271,6 +275,21 @@ int main() {
             -1.0f, -1.0f,  1.0f,
             1.0f, -1.0f,  1.0f
     };
+
+    //light
+    float lightVertices[] = {
+            //coordinates                     //normals                      //texture
+            1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, //top right
+            1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.0f,  //bottom right
+            -1.0f, -1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f,  //bottom left
+            -1.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f //top left
+    };
+
+    unsigned int lightIndices[]={
+            0, 1, 3,
+            1, 2, 3
+    };
+
     unsigned int skyboxVAO, skyboxVBO;
     glGenVertexArrays(1, &skyboxVAO);
     glGenBuffers(1, &skyboxVBO);
@@ -279,6 +298,26 @@ int main() {
     glBufferData(GL_ARRAY_BUFFER, sizeof(skyBoxVertices), &skyBoxVertices, GL_STATIC_DRAW);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+
+
+    unsigned int lightVAO, lightVBO, lightEBO;
+    glGenVertexArrays(1, &lightVAO);
+    glGenBuffers(1, &lightVBO);
+    glGenBuffers(1, &lightEBO);
+
+    glBindVertexArray(lightVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, lightVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(lightVertices), lightVertices, GL_STATIC_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lightEBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(lightIndices), lightIndices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), nullptr);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3*sizeof(float)));
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6*sizeof(float)));
+    glEnableVertexAttribArray(2);
+
 
     unsigned int hdrFBO;
     glGenFramebuffers(1, &hdrFBO);
@@ -342,6 +381,7 @@ int main() {
 
     unsigned int cubemapTexture = loadCubemap(faces);
     unsigned int planetTexture = loadTexture("resources/textures/planetrotation.png");
+    unsigned  int lightTexture = loadTexture("resources/textures/svetloPink.png");
 
     PointLight& pointLight = programState->pointLight;
     pointLight.position = glm::vec3(4.0f, 4.0, 0.0);
@@ -378,6 +418,9 @@ int main() {
     skyBoxShader.use();
     skyBoxShader.setInt("skybox", 0);
     skyBoxShader.setInt("planetTexture", 1);
+
+    lightShader.use();
+    lightShader.setInt("texture", 0);
 
     blurShader.use();
     blurShader.setInt("image", 0);
@@ -433,14 +476,14 @@ int main() {
         model = glm::scale(model, glm::vec3(1.0f));    // it's a bit too big for our scene, so scale it down
         model = glm::rotate(model, glm::radians(xwingRotation.x), glm::vec3(0.0f, -1.0f, 0.0f));
         model = glm::rotate(model, glm::radians(xwingRotation.y), glm::vec3(1.0f, 0.0f, 0.0f));
+        ourShader.setMat4("model", model);
+        ourModel.Draw(ourShader);
 
         if(!spectatorMode) {
             glm::vec4 xwingLightPosition2 = model * glm::vec4(xwingLightOffset, 1.0f);
             xwingLightPosition = glm::vec3(xwingLightPosition2);
             xwingLightDirection = programState->camera.Front;
         }
-        ourShader.setMat4("model", model);
-        ourModel.Draw(ourShader);
 
         //Star Destroyer
         if(TurnOnTheBrightLights){
@@ -543,6 +586,37 @@ int main() {
         asteroidFieldShader.setMat4("model", model4);
         asteroidFieldModel.Draw(asteroidFieldShader);
 
+        //lightTexture
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, lightTexture);
+        lightShader.use();
+        lightShader.setMat4("projection", projection);
+        lightShader.setMat4("view", view);
+
+        //model = glm::translate(model, xwingLBO+glm::vec3 (0.1f, 0.5f, 0.0f));
+        //model =  glm::scale(model, glm::vec3(0.3f));
+
+        glm::mat4 modellb = glm::translate(model,xwingLBO);
+        modellb = glm::scale(modellb, glm::vec3(0.3f));
+        lightShader.setMat4("model", modellb);
+        glBindVertexArray(lightVAO);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+        glm::mat4 modellt = glm::translate(model,glm::vec3(xwingLBO.x, -xwingLBO.y, xwingLBO.z));
+        modellt = glm::scale(modellt, glm::vec3(0.3f));
+        lightShader.setMat4("model", modellt);
+        glBindVertexArray(lightVAO);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+        glm::mat4 modelrt = glm::translate(model,glm::vec3(-xwingLBO.x, -xwingLBO.y, xwingLBO.z));
+        modelrt = glm::scale(modelrt, glm::vec3(0.3f));
+        lightShader.setMat4("model", modelrt);
+        glBindVertexArray(lightVAO);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+        glm::mat4 modelrb = glm::translate(model,glm::vec3(-xwingLBO.x, xwingLBO.y, xwingLBO.z));
+        modelrb = glm::scale(modelrb, glm::vec3(0.3f));
+        lightShader.setMat4("model", modelrb);
+        glBindVertexArray(lightVAO);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+
         //planetTexture
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, planetTexture);
@@ -612,7 +686,11 @@ int main() {
     // glfw: terminate, clearing all previously allocated GLFW resources.
     // ------------------------------------------------------------------
     glDeleteVertexArrays(1, &skyboxVAO);
+    glDeleteVertexArrays(1, &lightVAO);
     glDeleteBuffers(1, &skyboxVAO);
+    glDeleteBuffers(1, &lightVBO);
+    glDeleteVertexArrays(1, &lightEBO);
+
 
     glfwTerminate();
     return 0;
